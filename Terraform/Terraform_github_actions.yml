@@ -1,0 +1,61 @@
+name: Terraform CI/CD Pipeline
+
+on:
+  # Trigger the pipeline on every push or pull request
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  TF_VERSION: "1.5.0"              # Specify Terraform version
+  TF_WORKING_DIR: "./terraform"     # Directory where Terraform files are located
+
+jobs:
+  terraform:
+    name: Terraform Plan and Apply
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Terraform CLI
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      # Step 3: Initialize Terraform
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      # Step 4: Terraform Plan
+      # Creates an execution plan to show what changes will be made
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -out=tfplan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      # Step 5: Comment Plan output on Pull Requests (Optional)
+      # This step posts the plan output on PRs for visibility
+      - name: Post Plan output as PR comment
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ env.TF_WORKING_DIR }}/tfplan
+
+      # Step 6: Apply Terraform (Only on main branch)
+      # This step requires manual approval via GitHub Environments before executing
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        environment:
+          name: production               # The protected environment
+          url: https://your-production-url # Optional, link to the environment
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.TF_WORKING_DIR }}
