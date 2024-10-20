@@ -1,0 +1,77 @@
+name: Java Application CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    # This job runs on your self-hosted EC2 runner
+    runs-on: self-hosted
+
+    steps:
+      # Step 1: Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Java environment (specify version if needed)
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      # Step 3: Compile the Java application
+      - name: Compile Java application
+        run: mvn compile
+
+      # Step 4: Run unit tests
+      - name: Run unit tests
+        run: mvn test
+
+      # Step 5: SonarQube code analysis
+      - name: SonarQube Scan
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}  # Add SonarQube token in GitHub Secrets
+        run: mvn sonar:sonar -Dsonar.projectKey=smart_app \
+                             -Dsonar.host.url=https://3.54.68.7:9000 \
+                             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+
+      # Step 6: Package the application (build artifact)
+      - name: Package application
+        run: mvn package -DskipTests
+
+      # Step 7: Upload artifact to JFrog Artifactory
+      - name: Upload to JFrog Artifactory
+        env:
+          JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
+          JFROG_PASSWORD: ${{ secrets.JFROG_PASSWORD }}
+        run: |
+          curl -u $JFROG_USERNAME:$JFROG_PASSWORD \
+            -T target/your-app.jar \
+            "https://your.jfrog.io/artifactory/your-repo/your-app.jar"
+
+      # Step 8: Build Docker image
+      - name: Build Docker image
+        run: |
+          docker build -t smart_app:${{ github.sha }} .
+      
+      # Step 9: Tag and push Docker image to DockerHub (or other registry)
+      - name: Push Docker image to DockerHub
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+          docker tag smart_app:${{ github.sha }} ravisree900/smart_app:${{ github.sha }}
+          docker push ravisree900/smart_app:${{ github.sha }}
+
+      # Step 9: Create Docker Container
+      - name: Run Docker Container
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+          docker run -d --name smart_app -p 80:8080 ravisree900/smart_app:${{ github.sha }}
