@@ -36,8 +36,9 @@ To run this pipeline, you need:
 
 # Add the following secrets in your repository:
 
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
+1. AWS_ACCESS_KEY_ID
+2. AWS_SECRET_ACCESS_KEY
+
 Or other cloud provider credentials based on your infrastructure.
 
 # Approval Permissions: To enforce approval, set up GitHub Environments for the terraform apply step. Ensure that the manager or reviewer is assigned in the environment settings under repository Settings > Environments.
